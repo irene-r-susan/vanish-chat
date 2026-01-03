@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vanish Chat</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Sniglet:wght@400;800&family=Titan+One&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <div id="lobby">
+            <div id="head">
+            <h1>Vanish Chat</h1>
+            </div>
+            <div class="lobby-cards">
+            <div class="card">
+                <h3>Create a Room</h3>
+                <input type="text" id="create-username" placeholder="Username">
+                <input type="number" id="room-duration" placeholder="Time(seconds)" min="10">
+                <button onclick="createRoom()">Create Room</button>
+            </div>
+            <div class="card">
+                <h3>Join a Room</h3>
+                <input type="text" id="join-username" placeholder="Username">
+                <input type="text" id="join-roomId" placeholder="Room ID">
+                <button onclick="joinRoom()">Request to Join</button>
+            </div>
+            </div>
+        </div>
+
+        <div id="chat-container" class="hidden">
+            <div class="header">
+                <h2 id="display-room-id">Room: </h2>
+                
+                <div id="timer-warning" class="warning"></div>
+                 
+            </div>
+            
+            <div id="admin-panel" class="hidden">
+                <h4>Pending Requests</h4>
+                <ul id="request-list"></ul>
+            </div>
+           
+            <div id="messages"></div>
+            
+            <div class="input-area">
+                <input type="text" id="msg-input" placeholder="Type a message...">
+                <button onclick="sendMessage()">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
