@@ -3,6 +3,11 @@
 
 Vanish Chat is a privacy-focused, ephemeral messaging application where chat rooms and messages self-destruct after a set time. Built with **Node.js**, **Socket.io**, and **CryptoJS**, it ensures that your conversations leave no trace.
 
+
+## 🔗 Live Demo :
+https://vanish-chat.onrender.com
+
+
 ## ✨ Key Features
 
 - **Self-Destructing Rooms:** Rooms are deleted from server memory automatically when the timer hits zero.
@@ -51,11 +56,11 @@ Vanish Chat is a privacy-focused, ephemeral messaging application where chat roo
 
 3. **Project Structure**
 
-CHAT_ROOM
+VANISH_CHAT
 ├── public/              # Frontend assets
 │   ├── index.html       # UI Structure
-│   ├── style.css        # Custom Styling (Side-by-side cards)
+│   ├── style.css        # Custom Styling 
 │   └── script.js        # Frontend Logic & E2EE
-├── server.js            # Node.js/Socket.io Backend logic
+├── server.js            # Node.js/Socket.io 
 ├── package.json         # Dependencies & Scripts
 └── README.md            # You are here!       
