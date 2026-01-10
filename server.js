@@ -1,4 +1,6 @@
 
+app.use(express.static("public"));
+
 import express from "express";
 import http from "http";
 import crypto from "crypto";
