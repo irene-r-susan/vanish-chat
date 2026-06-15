@@ -6,30 +6,11 @@ import dotenv from "dotenv";
 
 import {Server} from "socket.io";
 import pool from "./db.js";
+import initializeDatabase from "./setup.js";
 
 dotenv.config();
 
-// Auto-create rooms table on startup
-async function initializeDatabase() {
-  try {
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS rooms (
-        id SERIAL PRIMARY KEY,
-        room_id VARCHAR(100) UNIQUE NOT NULL,
-        created_at TIMESTAMP DEFAULT NOW(),
-        expired_at TIMESTAMP,
-        peak_user_count INT DEFAULT 0,
-        total_messages INT DEFAULT 0,
-        is_expired BOOLEAN DEFAULT FALSE
-      );
-    `);
-    console.log('✅ Rooms table initialized');
-  } catch (err) {
-    console.error('Error initializing database:', err);
-    process.exit(1);
-  }
-}
-
+// Initialize database tables on startup
 await initializeDatabase();
 
 const app=express();
@@ -46,26 +27,13 @@ app.get("/",(req,res)=>{
 
 app.get("/analytics", async (req, res) => {
     try {
-        // First, ensure table exists
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS rooms (
-                id SERIAL PRIMARY KEY,
-                room_id VARCHAR(100) UNIQUE NOT NULL,
-                created_at TIMESTAMP DEFAULT NOW(),
-                expired_at TIMESTAMP,
-                peak_user_count INT DEFAULT 0,
-                total_messages INT DEFAULT 0,
-                is_expired BOOLEAN DEFAULT FALSE
-            );
-        `);
-        
         const result = await pool.query(`
             SELECT 
-                COUNT(*) as total_rooms,
-                SUM(total_messages) as total_messages,
-                SUM(peak_user_count) as total_users,
-                COUNT(CASE WHEN is_expired = false THEN 1 END) as active_rooms
-            FROM rooms;
+                COUNT(DISTINCT r.room_id) as total_rooms,
+                COUNT(DISTINCT CASE WHEN r.is_expired = false THEN r.room_id END) as active_rooms,
+                COUNT(m.id) as total_messages
+            FROM rooms r
+            LEFT JOIN messages m ON r.room_id = m.room_id;
         `);
         res.json(result.rows[0]);
     } catch (error) {
@@ -85,7 +53,22 @@ io.on("connection",socket=>{
      {
         if(rooms[roomId].ownerSocketid===socket.id)
         {
+            const room = rooms[roomId];
             io.to(roomId).emit("Room-closed");
+            // Cancel scheduled room expiry/warning timers
+            clearTimeout(room.expiryTimeout);
+            clearTimeout(room.warningTimeout);
+            // Delete messages and mark room as expired when owner disconnects
+            pool.query(
+                `DELETE FROM messages WHERE room_id = $1`,
+                [roomId]
+            ).catch(err => console.error('Error deleting messages:', err));
+            
+            pool.query(
+                `UPDATE rooms SET is_expired = true, expired_at = $1 WHERE room_id = $2`,
+                [new Date(), roomId]
+            ).catch(err => console.error('Error marking room as expired:', err));
+            
             delete rooms[roomId];
             continue;
         }
@@ -104,7 +87,7 @@ io.on("connection",socket=>{
      }
     });
     
-    socket.on("create-room",({username,duration})=>{
+    socket.on("create-room",async ({username,duration})=>{
       
         let roomId;
         do{
@@ -127,23 +110,35 @@ io.on("connection",socket=>{
                io.to(roomId).emit("only 5 sec left");
              },warningDelay),
             expiryTimeout:setTimeout(()=>{
+               const room = rooms[roomId];
+               if (!room) return;
                io.to(roomId).emit("room expired");
-               // Update database before deleting room
+               // Delete messages and mark room as expired
+               pool.query(
+                   `DELETE FROM messages WHERE room_id = $1`,
+                   [roomId]
+               ).catch(err => console.error('Error deleting messages on expiry:', err));
+               
                pool.query(
                    `UPDATE rooms SET expired_at = $1, peak_user_count = $2, total_messages = $3, is_expired = true 
                     WHERE room_id = $4`,
-                   [Date.now(), rooms[roomId].peakUserCount, rooms[roomId].messageCount, roomId]
+                   [new Date(), room.peakUserCount, room.messageCount, roomId]
                ).catch(err => console.error('Error updating room expiry:', err));
+               
                delete rooms[roomId];
              },expiryDelay)
         };
 
         // Insert room into database
-        pool.query(
-            `INSERT INTO rooms (room_id, created_at) VALUES ($1, $2)
-             ON CONFLICT (room_id) DO NOTHING`,
-            [roomId, Date.now()]
-        ).catch(err => console.error('Error inserting room:', err));
+        try {
+            await pool.query(
+                `INSERT INTO rooms (room_id, created_at) VALUES ($1, $2)
+                 ON CONFLICT (room_id) DO NOTHING`,
+                [roomId, new Date()]
+            );
+        } catch(err) {
+            console.error('Error inserting room:', err);
+        }
 
         socket.join(roomId);
         socket.emit("room-created", { roomId });
@@ -236,6 +231,13 @@ io.on("connection",socket=>{
      room.messageCount++;
      
      const timeStamp=new Date().toISOString();
+     
+     // Save message to database
+     pool.query(
+         `INSERT INTO messages (room_id, username, message, sent_at) VALUES ($1, $2, $3, $4)`,
+         [roomId, username, message, timeStamp]
+     ).catch(err => console.error('Error saving message:', err));
+     
      io.to(roomId).emit("new-message",{
         username,
         message,

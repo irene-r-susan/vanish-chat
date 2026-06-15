@@ -1,33 +1,41 @@
-import dotenv from 'dotenv';
-dotenv.config();  // ← MUST be first before anything else
+import pool from './db.js';
 
-import pg from 'pg';
-const { Pool } = pg;
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
-});
-
-async function createRoomsTable() {
+async function initializeDatabase() {
   try {
+    console.log('🔧 Setting up database tables...');
+
+    // Create rooms table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS rooms (
         id SERIAL PRIMARY KEY,
         room_id VARCHAR(100) UNIQUE NOT NULL,
         created_at TIMESTAMP DEFAULT NOW(),
         expired_at TIMESTAMP,
+        is_expired BOOLEAN DEFAULT FALSE,
         peak_user_count INT DEFAULT 0,
-        total_messages INT DEFAULT 0,
-        is_expired BOOLEAN DEFAULT FALSE
+        total_messages INT DEFAULT 0
       );
     `);
-    console.log('✅ Rooms analytics table created!');
+    console.log('✅ Rooms table initialized');
+
+    // Create messages table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS messages (
+        id SERIAL PRIMARY KEY,
+        room_id VARCHAR(100) NOT NULL,
+        username VARCHAR(255) NOT NULL,
+        message TEXT NOT NULL,
+        sent_at TIMESTAMP DEFAULT NOW(),
+        FOREIGN KEY (room_id) REFERENCES rooms(room_id) ON DELETE CASCADE
+      );
+    `);
+    console.log('✅ Messages table initialized');
+
+    console.log('✅ Database setup complete');
   } catch (err) {
-    console.error('Error creating table:', err);
-  } finally {
-    await pool.end();
+    console.error('❌ Error setting up database:', err);
+    process.exit(1);
   }
 }
 
-createRoomsTable();
+export default initializeDatabase;

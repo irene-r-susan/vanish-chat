@@ -1,14 +1,13 @@
 const socket = io();
 let currentRoomId = null;
-
+let createRoomDisabled = false;
 
 const lobby = document.getElementById('lobby');
 const chatContainer = document.getElementById('chat-container');
 const messagesDiv = document.getElementById('messages');
 const requestList = document.getElementById('request-list');
 const adminPanel = document.getElementById('admin-panel');
-
-
+const createRoomBtn = document.getElementById('create-room-btn');
 
 let roomKey = ""; 
 
@@ -17,15 +16,19 @@ function generateRandomKey() {
 }
 
 function createRoom() {
+    if (createRoomDisabled) return;
+
     const username = document.getElementById('create-username').value;
     const duration = document.getElementById('room-duration').value;
     
     if (!username || !duration) return alert("Fill all fields");
 
+    createRoomDisabled = true;
+    createRoomBtn.disabled = true;
+
     roomKey = generateRandomKey();
     
     socket.emit("create-room", { username, duration: parseInt(duration) });
-   
 }
 
 function joinRoom() {
@@ -51,6 +54,13 @@ function sendMessage() {
         input.value = "";
     }
 }
+
+document.getElementById('msg-input').addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        sendMessage();
+    }
+});
 
 
 socket.on("room-created", ({ roomId }) => {
@@ -134,8 +144,6 @@ function addSystemMessage(text) {
     div.innerText = text;
     messagesDiv.appendChild(div);
 }
-
-
 
 window.onload = () => {
     if (window.location.hash) {
