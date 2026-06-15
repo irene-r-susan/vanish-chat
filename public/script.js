@@ -72,7 +72,22 @@ socket.on("room-created", ({ roomId }) => {
     adminPanel.classList.remove('hidden');
     
     const shareLink = `${window.location.origin}/#${roomId}:${roomKey}`;
-    addSystemMessage(`Room created! Share this secure link: ${shareLink}`);
+    const messageHtml = `
+        <span style="color: gray; font-size: 13px;">Room created! Share this secure link:</span>
+        <div style="display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 5px;">
+            <a href="${shareLink}" style="color: #904bbeff; font-weight: bold; font-size: 12px; word-break: break-all;">${shareLink}</a>
+            <button onclick="copyToClipboard('${shareLink}')" style="width: auto; padding: 4px 10px; border-radius: 12px; font-size: 11px; margin: 0;">Copy</button>
+        </div>
+    `;
+    const div = document.createElement('div');
+    div.style.background = "#f8f9fa";
+    div.style.border = "1px solid #e9ecef";
+    div.style.padding = "10px";
+    div.style.borderRadius = "8px";
+    div.style.marginBottom = "10px";
+    div.style.textAlign = "center";
+    div.innerHTML = messageHtml;
+    messagesDiv.appendChild(div);
 });
 
 socket.on("approved", ({ roomId }) => {
@@ -165,3 +180,10 @@ window.onload = () => {
     }
 };
 
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(() => {
+        alert("Link copied to clipboard!");
+    }).catch(err => {
+        console.error('Could not copy text: ', err);
+    });
+}
